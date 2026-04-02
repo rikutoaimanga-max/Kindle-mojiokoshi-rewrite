@@ -1,0 +1,133 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { scroll-behavior: smooth; }
+  body {
+    background-color: #05050f;
+    color: #e2e8f0;
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Cpath d='M 40 0 L 0 0 0 40' fill='none' stroke='rgba(0,245,255,0.04)' stroke-width='1'/%3E%3C/svg%3E");
+  }
+  ::selection {
+    background: rgba(0, 245, 255, 0.25);
+    color: #00f5ff;
+  }
+}
+
+@layer components {
+  /* ── ネオングロウ ─────────────────────────── */
+  .neon-text-cyan {
+    color: #00f5ff;
+    text-shadow: 0 0 10px rgba(0,245,255,0.8), 0 0 30px rgba(0,245,255,0.4);
+  }
+  .neon-text-purple {
+    color: #bf5fff;
+    text-shadow: 0 0 10px rgba(191,95,255,0.8), 0 0 30px rgba(191,95,255,0.4);
+  }
+  .neon-text-pink {
+    color: #ff2d9b;
+    text-shadow: 0 0 10px rgba(255,45,155,0.8), 0 0 30px rgba(255,45,155,0.4);
+  }
+  .neon-text-green {
+    color: #00ff88;
+    text-shadow: 0 0 10px rgba(0,255,136,0.8), 0 0 30px rgba(0,255,136,0.4);
+  }
+
+  /* ── グラスカード ─────────────────────────── */
+  .glass-card {
+    background: rgba(15, 15, 36, 0.7);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(0, 245, 255, 0.12);
+    box-shadow: 0 4px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+
+  /* ── ネオンボーダー ───────────────────────── */
+  .neon-border-cyan   { border-color: rgba(0, 245, 255, 0.4); }
+  .neon-border-purple { border-color: rgba(191, 95, 255, 0.4); }
+  .neon-border-green  { border-color: rgba(0, 255, 136, 0.4); }
+
+  /* ── インプット ──────────────────────────── */
+  .neon-input {
+    @apply w-full px-4 py-3 rounded-xl outline-none text-sm transition-all font-mono;
+    background: rgba(5, 5, 15, 0.8);
+    border: 1px solid rgba(0, 245, 255, 0.15);
+    color: #e2e8f0;
+  }
+  .neon-input::placeholder { color: rgba(148,163,184,0.4); }
+  .neon-input:focus {
+    border-color: rgba(0, 245, 255, 0.6);
+    box-shadow: 0 0 0 2px rgba(0,245,255,0.1), 0 0 12px rgba(0,245,255,0.2);
+  }
+
+  /* ── ボタン ──────────────────────────────── */
+  .btn-neon-cyan {
+    @apply flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm transition-all active:scale-95 disabled:opacity-50 whitespace-nowrap;
+    background: linear-gradient(135deg, rgba(0,245,255,0.15), rgba(0,180,255,0.1));
+    border: 1px solid rgba(0,245,255,0.5);
+    color: #00f5ff;
+    box-shadow: 0 0 12px rgba(0,245,255,0.2), inset 0 0 12px rgba(0,245,255,0.05);
+  }
+  .btn-neon-cyan:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(0,245,255,0.25), rgba(0,180,255,0.2));
+    box-shadow: 0 0 20px rgba(0,245,255,0.4), inset 0 0 20px rgba(0,245,255,0.08);
+  }
+  .btn-neon-purple {
+    @apply flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm transition-all active:scale-95 disabled:opacity-50 whitespace-nowrap;
+    background: linear-gradient(135deg, rgba(191,95,255,0.15), rgba(124,58,237,0.1));
+    border: 1px solid rgba(191,95,255,0.5);
+    color: #bf5fff;
+    box-shadow: 0 0 12px rgba(191,95,255,0.2), inset 0 0 12px rgba(191,95,255,0.05);
+  }
+  .btn-neon-purple:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(191,95,255,0.25), rgba(124,58,237,0.2));
+    box-shadow: 0 0 20px rgba(191,95,255,0.4), inset 0 0 20px rgba(191,95,255,0.08);
+  }
+  .btn-neon-green {
+    @apply flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all active:scale-95 disabled:opacity-50 whitespace-nowrap;
+    background: linear-gradient(135deg, rgba(0,255,136,0.15), rgba(0,180,120,0.1));
+    border: 1px solid rgba(0,255,136,0.5);
+    color: #00ff88;
+    box-shadow: 0 0 12px rgba(0,255,136,0.2), inset 0 0 12px rgba(0,255,136,0.05);
+  }
+  .btn-neon-green:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(0,255,136,0.25), rgba(0,180,120,0.2));
+    box-shadow: 0 0 20px rgba(0,255,136,0.4), inset 0 0 20px rgba(0,255,136,0.08);
+  }
+  .btn-neon-blue {
+    @apply flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all active:scale-95 disabled:opacity-50 whitespace-nowrap;
+    background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(67,56,202,0.15));
+    border: 1px solid rgba(129,140,248,0.5);
+    color: #a5b4fc;
+    box-shadow: 0 0 12px rgba(99,102,241,0.2), inset 0 0 12px rgba(99,102,241,0.05);
+  }
+  .btn-neon-blue:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(99,102,241,0.3), rgba(67,56,202,0.25));
+    box-shadow: 0 0 20px rgba(99,102,241,0.35), inset 0 0 20px rgba(99,102,241,0.08);
+  }
+  .btn-ghost {
+    @apply flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm transition-all active:scale-95 disabled:opacity-50;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: rgba(148,163,184,0.9);
+  }
+  .btn-ghost:hover:not(:disabled) {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.15);
+    color: #e2e8f0;
+  }
+}
+
+/* ── スクロールバー ───────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(0,245,255,0.2);
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(0,245,255,0.4); }
