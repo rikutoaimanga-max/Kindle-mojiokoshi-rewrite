@@ -128,6 +128,14 @@ export default function SettingsModal({ settings, onSave, onClose }) {
           {/* 2. リライト要件管理 */}
           {activeTab === 'rules' && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="p-4 rounded-xl bg-cyan-500/5 border border-cyan-500/10">
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  コンテンツに応じて、以下の要件を追加した上でリライトしてください。
+                  <br />
+                  <span className="text-cyan-400/80 font-bold uppercase tracking-wider">【書籍テーマ】【ターゲット読者】【著者の実績や体験談】</span>
+                </p>
+              </div>
+
               <div className="flex gap-3">
                 <input 
                   type="text" 
