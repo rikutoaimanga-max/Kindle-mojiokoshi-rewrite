@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { UploadCloud, FileAudio, Loader2 } from 'lucide-react';
 
-export default function Uploader({ onUpload, isLoading, progress }) {
+export default function Uploader({ onUpload, isLoading, progress, status }) {
   const [isDragActive, setIsDragActive] = useState(false);
 
   const handleDragEnter = useCallback((e) => { e.preventDefault(); e.stopPropagation(); setIsDragActive(true); }, []);
@@ -49,8 +49,8 @@ export default function Uploader({ onUpload, isLoading, progress }) {
             </div>
           </div>
           <div>
-            <h3 className="text-lg font-bold tracking-wide neon-text-cyan">文字起こし中...</h3>
-            <p className="text-xs text-slate-500 mt-1">Whisper AIが音声を解析中（25MB超の場合は自動分割処理します）</p>
+            <h3 className="text-lg font-bold tracking-wide neon-text-cyan">{status || '文字起こし中...'}</h3>
+            <p className="text-xs text-slate-500 mt-1">巨大ファイルの場合はダウンサンプリングしてメモリを節約します</p>
           </div>
           {/* Progress bar */}
           <div className="w-64 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(0,245,255,0.1)' }}>

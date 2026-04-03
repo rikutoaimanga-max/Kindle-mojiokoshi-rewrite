@@ -35,6 +35,7 @@ function App() {
   // 文字起こし
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [transcribeProgress, setTranscribeProgress] = useState(0);
+  const [transcribeStatus, setTranscribeStatus] = useState('');
   const [transcribedText, setTranscribedText] = useState('');
 
   // リライト
@@ -104,10 +105,13 @@ function App() {
   // ── 音声アップロード ──────────────────────────
   const handleUpload = async (file) => {
     if (!settings.openaiKey) { setIsSettingsOpen(true); setError('OpenAI APIキーを設定してください。'); return; }
-    setError(''); setIsTranscribing(true); setTranscribeProgress(0);
+    setError(''); setIsTranscribing(true); setTranscribeProgress(0); setTranscribeStatus('準備中...');
     setTranscribedText(''); setRewrittenText(''); setActiveTab('transcribed');
     try {
-      const text = await transcribeAudio(file, settings.openaiKey, setTranscribeProgress);
+      const text = await transcribeAudio(file, settings.openaiKey, (p, status) => {
+        setTranscribeProgress(p);
+        if (status) setTranscribeStatus(status);
+      });
       setTranscribedText(text);
     } catch (err) { setError(err.message || 'エラーが発生しました。'); }
     finally { setIsTranscribing(false); }
@@ -281,7 +285,12 @@ function App() {
             {/* タブコンテンツ */}
             <div className="p-6 sm:p-8">
               {inputMode === 'audio' ? (
-                <Uploader onUpload={handleUpload} isLoading={isTranscribing} progress={transcribeProgress} />
+                <Uploader 
+                  onUpload={handleUpload} 
+                  isLoading={isTranscribing} 
+                  progress={transcribeProgress} 
+                  status={transcribeStatus}
+                />
               ) : (
                 /* テキスト入力モード */
                 <div className="space-y-4">

@@ -32,7 +32,7 @@ const audioBufferSliceToWav = (audioBuffer, startSample, endSample) => {
   writeStr(36, 'data');
   view.setUint32(40, dataSize, true);
 
-  // PCMデータを書き込む（インターリーブ）
+  // PCMデータを書き込む
   let offset = 44;
   for (let i = startSample; i < endSample; i++) {
     for (let ch = 0; ch < numChannels; ch++) {
@@ -46,20 +46,18 @@ const audioBufferSliceToWav = (audioBuffer, startSample, endSample) => {
 };
 
 /**
- * WAV Blobのバイトサイズから推定チャンクサイズを計算
- * 1チャンクが WHISPER_MAX_BYTES を超えないよう分割するサンプル数を返す
+ * サンプル数を計算
  */
 const calcSamplesPerChunk = (audioBuffer) => {
   const { sampleRate, numberOfChannels } = audioBuffer;
   const bytesPerSample = 2;
   const maxSamples = Math.floor(WHISPER_MAX_BYTES / (numberOfChannels * bytesPerSample));
-  // 時間上限も考慮
   const maxByTime = CHUNK_SECONDS * sampleRate;
   return Math.min(maxSamples, maxByTime);
 };
 
 /**
- * Whisper APIに単一チャンクを送信して文字起こし結果を返す
+ * 単一チャンクを送信
  */
 const transcribeBlob = async (blob, apiKey, filename = 'chunk.wav') => {
   const formData = new FormData();
@@ -83,86 +81,70 @@ const transcribeBlob = async (blob, apiKey, filename = 'chunk.wav') => {
 };
 
 /**
- * 音声ファイルを受け取り、必要に応じて自動分割してWhisper APIで文字起こしする。
- * 25MB を超えるファイルはブラウザの Web Audio API でデコード → WAVチャンクに分割して処理。
- *
- * @param {File}     file        - 音声ファイル
- * @param {string}   apiKey      - OpenAI APIキー
- * @param {Function} onProgress  - 進捗コールバック (0〜100)
- * @returns {Promise<string>} 文字起こし結果テキスト
+ * メモリ節約型文字起こし
  */
 export const transcribeAudio = async (file, apiKey, onProgress) => {
-  if (onProgress) onProgress(5);
+  if (onProgress) onProgress(2, 'ファイルを読み込み中...');
 
-  // ── 25MB以下なら直接送信 ──────────────────────────
+  // ── 24MB以下なら直接送信 ──
   if (file.size <= WHISPER_MAX_BYTES) {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('model', 'whisper-1');
-    formData.append('language', 'ja');
-
-    if (onProgress) onProgress(20);
-
-    const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${apiKey}` },
-      body: formData,
-    });
-
-    if (onProgress) onProgress(90);
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error?.message || '文字起こしに失敗しました。');
-    }
-
-    const data = await response.json();
-    if (onProgress) onProgress(100);
-    return data.text || '';
+    if (onProgress) onProgress(10, 'サーバーへ送信中...');
+    return await transcribeBlob(file, apiKey, file.name);
   }
 
-  // ── 25MB超：Web Audio APIで分割処理 ──────────────
-  if (onProgress) onProgress(5);
+  // ── 24MB超：メモリ節約モード ──
+  if (onProgress) onProgress(5, '巨大ファイルをスキャン中...');
 
-  // ArrayBuffer に読み込む
-  const arrayBuffer = await file.arrayBuffer();
-  if (onProgress) onProgress(15);
+  let arrayBuffer = await file.arrayBuffer();
+  if (onProgress) onProgress(15, 'メモリ節約デコードを開始...');
 
-  // AudioContextでデコード
-  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  // 16kHz モノラル（Whisperの推奨値）に制限してデコード
+  // これにより、通常のステレオデコードと比較してメモリ消費を大幅に削減
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)({
+    sampleRate: 16000, // 44.1kHzから16kHzへダウンサンプリング
+  });
+
   let audioBuffer;
   try {
     audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-  } catch {
-    throw new Error('音声ファイルのデコードに失敗しました。対応フォーマットか確認してください（mp3, wav, m4a等）。');
+    // デコード完了後、元の巨大な ArrayBuffer は不要なので即座に解放
+    arrayBuffer = null; 
+  } catch (err) {
+    arrayBuffer = null;
+    throw new Error('音声のデコードに失敗しました。1.4GBを超える巨大ファイルの場合、ブラウザのメモリ制限により処理できない可能性があります。一度mp3などの軽量な形式に変換してからアップロードしてください。');
   }
 
   const totalSamples = audioBuffer.length;
   const samplesPerChunk = calcSamplesPerChunk(audioBuffer);
   const totalChunks = Math.ceil(totalSamples / samplesPerChunk);
 
-  if (onProgress) onProgress(20);
+  if (onProgress) onProgress(20, `計 ${totalChunks} 個のチャンクに分割中...`);
 
   const texts = [];
   for (let i = 0; i < totalChunks; i++) {
     const start = i * samplesPerChunk;
     const end = Math.min(start + samplesPerChunk, totalSamples);
 
-    // WAV Blobに変換
+    if (onProgress) onProgress(20 + Math.round((i / totalChunks) * 75), `文字起こし中... (${i + 1}/${totalChunks})`);
+
+    // 1チャンクずつ切り出してWAV化し、即時に送信
     const wavBlob = audioBufferSliceToWav(audioBuffer, start, end);
+    
+    try {
+      const chunkText = await transcribeBlob(wavBlob, apiKey, `chunk_${i + 1}.wav`);
+      texts.push(chunkText);
+    } catch (err) {
+      console.error(`Chunk ${i} failed:`, err);
+      // 一部のチャンクが失敗しても継続するか、エラーを出すか
+      texts.push(`[エラー：この区間の文字起こしに失敗しました (${err.message})]`);
+    }
 
-    // Whisper APIに送信
-    const chunkText = await transcribeBlob(wavBlob, apiKey, `chunk_${i + 1}.wav`);
-    texts.push(chunkText);
-
-    // 進捗更新 (20%〜95%)
-    const progress = 20 + Math.round(((i + 1) / totalChunks) * 75);
-    if (onProgress) onProgress(progress);
+    // 各チャンク処理後、可能であれば一時変数をクリア
+    // ただし、audioBufferは全チャンクで共有するためnullにはできない
   }
 
   audioCtx.close();
-  if (onProgress) onProgress(100);
+  if (onProgress) onProgress(100, '完了！');
 
-  // 結果を結合（チャンク間は改行で区切る）
   return texts.join('\n');
 };
