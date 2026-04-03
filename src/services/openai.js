@@ -1,6 +1,6 @@
 // Whisper APIの1リクエスト上限：25MB
 const WHISPER_MAX_BYTES = 24 * 1024 * 1024; // 安全マージンで24MBに設定
-// 1チャンクあたりの最大時間（秒）— 長い音声の場合これで分割する
+// 1チャンクあたりの最大時間（秒）
 const CHUNK_SECONDS = 10 * 60; // 10分
 
 /**
@@ -46,7 +46,7 @@ const audioBufferSliceToWav = (audioBuffer, startSample, endSample) => {
 };
 
 /**
- * サンプル数を計算
+ * チャンクあたりの最大サンプル数を計算
  */
 const calcSamplesPerChunk = (audioBuffer) => {
   const { sampleRate, numberOfChannels } = audioBuffer;
@@ -57,13 +57,23 @@ const calcSamplesPerChunk = (audioBuffer) => {
 };
 
 /**
- * 単一チャンクを送信
+ * Whisper APIに単一チャンクを送信する
+ * @param {Blob} blob - 音声データ
+ * @param {string} apiKey - APIキー
+ * @param {string} filename - ファイル名
+ * @param {string} prompt - 文脈情報・キーワード（文字起こしのヒント）
  */
-const transcribeBlob = async (blob, apiKey, filename = 'chunk.wav') => {
+const transcribeBlob = async (blob, apiKey, filename = 'chunk.wav', prompt = '') => {
   const formData = new FormData();
   formData.append('file', blob, filename);
   formData.append('model', 'whisper-1');
   formData.append('language', 'ja');
+  
+  // prompt パラメータを追加することで、固有名詞の誤字を減らし、
+  // チャンク間に跨る文脈を維持しやすくします。
+  if (prompt) {
+    formData.append('prompt', prompt);
+  }
 
   const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
     method: 'POST',
@@ -81,66 +91,65 @@ const transcribeBlob = async (blob, apiKey, filename = 'chunk.wav') => {
 };
 
 /**
- * メモリ節約型文字起こし
+ * メモリ節約型かつ高精度な文字起こし
  */
-export const transcribeAudio = async (file, apiKey, onProgress) => {
+export const transcribeAudio = async (file, apiKey, onProgress, transcriptionHint = '') => {
   if (onProgress) onProgress(2, 'ファイルを読み込み中...');
 
   // ── 24MB以下なら直接送信 ──
   if (file.size <= WHISPER_MAX_BYTES) {
     if (onProgress) onProgress(10, 'サーバーへ送信中...');
-    return await transcribeBlob(file, apiKey, file.name);
+    return await transcribeBlob(file, apiKey, file.name, transcriptionHint);
   }
 
-  // ── 24MB超：メモリ節約モード ──
+  // ── 24MB超：分割処理 ──
   if (onProgress) onProgress(5, '巨大ファイルをスキャン中...');
 
   let arrayBuffer = await file.arrayBuffer();
-  if (onProgress) onProgress(15, 'メモリ節約デコードを開始...');
+  if (onProgress) onProgress(10, 'メモリ節約デコード中...');
 
-  // 16kHz モノラル（Whisperの推奨値）に制限してデコード
-  // これにより、通常のステレオデコードと比較してメモリ消費を大幅に削減
   const audioCtx = new (window.AudioContext || window.webkitAudioContext)({
-    sampleRate: 16000, // 44.1kHzから16kHzへダウンサンプリング
+    sampleRate: 16000, 
   });
 
   let audioBuffer;
   try {
     audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-    // デコード完了後、元の巨大な ArrayBuffer は不要なので即座に解放
     arrayBuffer = null; 
   } catch (err) {
     arrayBuffer = null;
-    throw new Error('音声のデコードに失敗しました。1.4GBを超える巨大ファイルの場合、ブラウザのメモリ制限により処理できない可能性があります。一度mp3などの軽量な形式に変換してからアップロードしてください。');
+    throw new Error('音声のデコードに失敗しました。');
   }
 
   const totalSamples = audioBuffer.length;
   const samplesPerChunk = calcSamplesPerChunk(audioBuffer);
   const totalChunks = Math.ceil(totalSamples / samplesPerChunk);
 
-  if (onProgress) onProgress(20, `計 ${totalChunks} 個のチャンクに分割中...`);
+  if (onProgress) onProgress(20, `全 ${totalChunks} 個の区間に分割して解析中...`);
 
   const texts = [];
+  // チャンク間の文脈を維持するため、前のチャンクの結果を次のチャンクの prompt に渡す
+  let lastAppendedText = transcriptionHint;
+
   for (let i = 0; i < totalChunks; i++) {
     const start = i * samplesPerChunk;
     const end = Math.min(start + samplesPerChunk, totalSamples);
 
-    if (onProgress) onProgress(20 + Math.round((i / totalChunks) * 75), `文字起こし中... (${i + 1}/${totalChunks})`);
+    if (onProgress) onProgress(20 + Math.round((i / totalChunks) * 75), `解析中... (${i + 1}/${totalChunks})`);
 
-    // 1チャンクずつ切り出してWAV化し、即時に送信
     const wavBlob = audioBufferSliceToWav(audioBuffer, start, end);
     
     try {
-      const chunkText = await transcribeBlob(wavBlob, apiKey, `chunk_${i + 1}.wav`);
+      // 前のチャンクの最後の200文字程度をヒントとして渡す（Whisperのprompt制限に配慮）
+      const contextPrompt = (transcriptionHint + " " + lastAppendedText).slice(-1000);
+      const chunkText = await transcribeBlob(wavBlob, apiKey, `chunk_${i + 1}.wav`, contextPrompt);
+      
       texts.push(chunkText);
+      lastAppendedText = chunkText;
     } catch (err) {
       console.error(`Chunk ${i} failed:`, err);
-      // 一部のチャンクが失敗しても継続するか、エラーを出すか
-      texts.push(`[エラー：この区間の文字起こしに失敗しました (${err.message})]`);
+      texts.push(`[解析エラー: ${err.message}]`);
     }
-
-    // 各チャンク処理後、可能であれば一時変数をクリア
-    // ただし、audioBufferは全チャンクで共有するためnullにはできない
   }
 
   audioCtx.close();

@@ -2,8 +2,9 @@ import { contextBridge, ipcRenderer } from 'electron'
 
 // Web 側から安全に呼び出せるネイティブ API を定義します
 contextBridge.exposeInMainWorld('electronAPI', {
-  // 必要に応じてメインプロセスとのやり取りを追加します
-  // 例: sendMessage: (message) => ipcRenderer.send('message', message)
+  // メインプロセスで定義したリライト処理を呼び出す
+  rewriteWithClaude: (args) => ipcRenderer.invoke('anthropic:rewrite', args),
+  recommendPattern: (args) => ipcRenderer.invoke('anthropic:recommend', args),
 })
 
 // Node.js のバージョン情報を公開（デバッグ用）

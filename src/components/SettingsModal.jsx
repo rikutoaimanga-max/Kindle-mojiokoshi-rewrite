@@ -7,6 +7,7 @@ export default function SettingsModal({ settings, onSave, onClose }) {
   const [openaiKey, setOpenaiKey] = useState(settings?.openaiKey || '');
   const [anthropicKey, setAnthropicKey] = useState(settings?.anthropicKey || '');
   const [authorName, setAuthorName] = useState(settings?.authorName || '');
+  const [transcriptionHint, setTranscriptionHint] = useState(settings?.transcriptionHint || '');
   
   // 要件リスト
   const [customRules, setCustomRules] = useState(settings?.customRules || []);
@@ -31,6 +32,7 @@ export default function SettingsModal({ settings, onSave, onClose }) {
       authorName, 
       customRules,
       structurePatterns,
+      transcriptionHint,
       customInstructions: customRules.filter(r => r.enabled).map(r => r.text).join('\n')
     });
     setSaved(true);
@@ -121,6 +123,20 @@ export default function SettingsModal({ settings, onSave, onClose }) {
                 </label>
                 <input type="text" value={authorName} onChange={(e) => setAuthorName(e.target.value)}
                   placeholder="例：山田 太郎" className="neon-input" style={{ borderColor: 'rgba(0,255,136,0.2)' }} />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-500/60 flex items-center gap-2">
+                  <div className="w-1 h-1 bg-orange-500 rounded-full" /> Transcription Hint (Keywords for accuracy)
+                </label>
+                <textarea 
+                  value={transcriptionHint} 
+                  onChange={(e) => setTranscriptionHint(e.target.value)}
+                  placeholder="例：Kindle, 出版, 印税, カテゴリー, 著者名, 専門用語..." 
+                  className="neon-input text-xs h-20 pt-3" 
+                  style={{ borderColor: 'rgba(255,165,0,0.2)' }} 
+                />
+                <p className="text-[9px] text-slate-500 italic">※AIに関連用語を教えることで、誤字を減らします。</p>
               </div>
             </div>
           )}
